@@ -126,13 +126,14 @@ class RoundController:
 
         elif mode == "manual":
             # Wait for either manual trigger or shutdown
-            done, _ = await asyncio.wait(
-                [
-                    asyncio.create_task(self._manual_trigger.wait()),
-                    asyncio.create_task(self._shutdown.wait()),
-                ],
+            trigger_task = asyncio.create_task(self._manual_trigger.wait())
+            shutdown_task = asyncio.create_task(self._shutdown.wait())
+            done, pending = await asyncio.wait(
+                [trigger_task, shutdown_task],
                 return_when=asyncio.FIRST_COMPLETED,
             )
+            for task in pending:
+                task.cancel()
             return self._manual_trigger.is_set()
 
         else:

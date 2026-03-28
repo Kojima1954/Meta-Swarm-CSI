@@ -45,6 +45,10 @@ class TranscriptBuffer:
         self._entries = [e for e in self._entries if e.timestamp >= cutoff]
         if len(self._entries) > self.max_messages:
             self._entries = self._entries[-self.max_messages :]
+        # Rebuild unique senders from remaining entries
+        self._unique_senders = {
+            e.sender for e in self._entries if not e.is_swarm_signal
+        }
 
     @property
     def message_count(self) -> int:
