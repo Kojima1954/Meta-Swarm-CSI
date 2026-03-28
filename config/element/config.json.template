@@ -1,0 +1,29 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "https://__DOMAIN__",
+            "server_name": "__DOMAIN__"
+        },
+        "m.identity_server": {
+            "base_url": "https://vector.im"
+        }
+    },
+    "brand": "N.O.M.A.D. Swarm",
+    "integrations_ui_url": "",
+    "integrations_rest_url": "",
+    "bug_report_endpoint_url": "",
+    "show_labs_settings": false,
+    "default_theme": "dark",
+    "room_directory": {
+        "servers": [
+            "__DOMAIN__"
+        ]
+    },
+    "features": {
+        "feature_video_rooms": false,
+        "feature_element_call_video_rooms": false
+    },
+    "setting_defaults": {
+        "breadcrumbs": true
+    }
+}

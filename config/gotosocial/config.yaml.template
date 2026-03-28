@@ -1,0 +1,37 @@
+# ═══════════════════════════════════════════════════════════════
+#  GoToSocial — Configuration
+#  Part of N.O.M.A.D. Swarm Intelligence
+# ═══════════════════════════════════════════════════════════════
+
+# Domain and protocol
+host: "__DOMAIN__"
+protocol: "https"
+port: 8080
+bind-address: "0.0.0.0"
+
+# Database
+db-type: "sqlite"
+db-address: "/gotosocial/storage/sqlite.db"
+
+# Accounts
+accounts-registration-open: false
+accounts-approval-required: true
+
+# Instance
+instance-expose-public-timeline: false
+instance-deliver-to-shared-inboxes: true
+
+# Storage
+storage-backend: "local"
+storage-local-base-path: "/gotosocial/storage"
+
+# Media
+media-image-max-size: 10485760
+media-video-max-size: 41943040
+media-description-max-chars: 500
+
+# Logging
+log-level: "info"
+
+# Admin
+# Admin account is created via CLI during install
