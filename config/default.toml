@@ -12,6 +12,8 @@ domain = "__DOMAIN__"
 homeserver_url = "http://conduit:6167"
 server_name = "__DOMAIN__"
 room_alias = "#swarm-deliberation:__DOMAIN__"
+user_id = "@orchestrator:__DOMAIN__"
+password = ""  # Set via MATRIX_ORCHESTRATOR_PASSWORD env var
 
 [ai]
 llm_model = "__LLM_MODEL__"
@@ -19,10 +21,13 @@ embedding_model = "__EMBEDDING_MODEL__"
 ollama_url = "http://ollama:11434"
 qdrant_url = "http://qdrant:6333"
 qdrant_collection = "swarm_memory"
+temperature = 0.3
+max_tokens = 2048
 
 [federation]
 gotosocial_url = "http://gotosocial:8080"
 protocol = "https"
+access_token = ""  # Set via GOTOSOCIAL_ACCESS_TOKEN env var
 
 [rounds]
 mode = "__ROUND_MODE__"
