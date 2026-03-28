@@ -148,7 +148,7 @@ replace_placeholder() {
     local value="$3"
     # Escape special sed characters in value
     local escaped_value
-    escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+    escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\|]/\\&/g')
     sed -i "s|${placeholder}|${escaped_value}|g" "$file"
 }
 

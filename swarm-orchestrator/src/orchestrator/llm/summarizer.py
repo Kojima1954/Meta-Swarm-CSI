@@ -89,9 +89,14 @@ class Summarizer:
                 # Strip any markdown fences the LLM might add
                 cleaned = json_text.strip()
                 if cleaned.startswith("```"):
-                    cleaned = cleaned.split("\n", 1)[1]
-                    if cleaned.endswith("```"):
-                        cleaned = cleaned[: cleaned.rfind("```")]
+                    parts = cleaned.split("\n", 1)
+                    if len(parts) > 1:
+                        cleaned = parts[1]
+                        if cleaned.endswith("```"):
+                            cleaned = cleaned[: cleaned.rfind("```")]
+                    else:
+                        # Single-line: ```json{...}``` — strip leading/trailing fences
+                        cleaned = cleaned.strip("`").lstrip("json").lstrip()
                     cleaned = cleaned.strip()
 
                 data = json.loads(cleaned)

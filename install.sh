@@ -23,7 +23,7 @@
 
 set -euo pipefail
 
-TOTAL_PHASES=10
+TOTAL_PHASES=8
 
 # ─── Source common library ────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -52,11 +52,12 @@ class FederationPublisher:
             if node.id not in encrypted:
                 continue
             ciphertext_b64 = encrypted[node.id]
-            await self._send_dm(summary, node.actor_uri, node.id, ciphertext_b64)
+            await self._send_dm(summary, topology, node.actor_uri, node.id, ciphertext_b64)
 
-    async def _send_dm(
+    async def _send_dm(  # noqa: PLR0913
         self,
         summary: SwarmSummary,
+        topology: Topology,
         actor_uri: str,
         target_node_id: str,
         ciphertext_b64: str,
@@ -98,8 +99,8 @@ class FederationPublisher:
                 target=target_node_id,
                 error=str(exc),
             )
-            # Queue for retry
-            self._pending.append((summary, Topology(nodes=[])))
+            # Queue for retry with original topology
+            self._pending.append((summary, topology))
 
     async def retry_pending(self) -> None:
         """Retry any queued failed deliveries."""
@@ -107,5 +108,6 @@ class FederationPublisher:
             return
         pending = list(self._pending)
         self._pending.clear()
-        for summary, _ in pending:
+        for summary, topology in pending:
             log.info("publisher.retry", summary_id=summary.summary_id())
+            await self.publish(summary, topology)
