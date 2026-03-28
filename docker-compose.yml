@@ -1,0 +1,139 @@
+# ═══════════════════════════════════════════════════════════════
+#  N.O.M.A.D. Swarm Intelligence — Companion Stack
+# ═══════════════════════════════════════════════════════════════
+# Prerequisite: Project N.O.M.A.D. running at /opt/project-nomad
+#
+# Usage:
+#   docker compose up -d                          # NOMAD manages Ollama/Qdrant
+#   docker compose --profile self-managed up -d   # We manage Ollama/Qdrant
+
+services:
+
+  # ─── Self-Managed AI Services (activated via profile) ──────
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: unless-stopped
+    profiles: ["self-managed"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - swarm
+      - nomad
+
+  qdrant:
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:latest}
+    restart: unless-stopped
+    profiles: ["self-managed"]
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - swarm
+      - nomad
+
+  # ─── Matrix Homeserver ─────────────────────────────────────
+
+  conduit:
+    image: ${CONDUIT_IMAGE:-matrixconduit/matrix-conduit:latest}
+    restart: unless-stopped
+    volumes:
+      - conduit-data:/var/lib/matrix-conduit
+      - ./config/conduit/conduit.toml:/etc/conduit/conduit.toml:ro
+    environment:
+      CONDUIT_CONFIG: /etc/conduit/conduit.toml
+    networks:
+      - swarm
+      - nomad
+
+  # ─── Matrix Web Client ────────────────────────────────────
+
+  element-web:
+    image: ${ELEMENT_IMAGE:-vectorim/element-web:latest}
+    restart: unless-stopped
+    volumes:
+      - ./config/element/config.json:/app/config.json:ro
+    networks:
+      - swarm
+
+  # ─── Fediverse / ActivityPub ───────────────────────────────
+
+  gotosocial:
+    image: ${GOTOSOCIAL_IMAGE:-superseriousbusiness/gotosocial:latest}
+    restart: unless-stopped
+    volumes:
+      - gotosocial-data:/gotosocial/storage
+      - ./config/gotosocial/config.yaml:/gotosocial/config.yaml:ro
+    environment:
+      GTS_CONFIG_PATH: /gotosocial/config.yaml
+    networks:
+      - swarm
+
+  # ─── Reverse Proxy + TLS ──────────────────────────────────
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8448:8448"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      - conduit
+      - element-web
+      - gotosocial
+    networks:
+      - swarm
+
+  # ─── TLS Certificate Manager ──────────────────────────────
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["tls"]
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-www:/var/www/certbot
+
+  # ─── The Swarm Orchestrator (custom Python app) ────────────
+
+  swarm-orchestrator:
+    build: ./swarm-orchestrator
+    restart: unless-stopped
+    volumes:
+      - orchestrator-data:/data
+      - ./config/default.toml:/etc/orchestrator/config.toml:ro
+      - ./config/topology.toml:/etc/orchestrator/topology.toml:ro
+      - ./data/keys:/data/keys:ro
+    depends_on:
+      - conduit
+      - gotosocial
+    networks:
+      - swarm
+      - nomad
+
+volumes:
+  ollama-data:
+  qdrant-data:
+  conduit-data:
+  gotosocial-data:
+  orchestrator-data:
+  certbot-etc:
+  certbot-var:
+  certbot-www:
+
+networks:
+  swarm:
+    driver: bridge
+  nomad:
+    external: true
+    name: ${NOMAD_NETWORK:-project-nomad_default}

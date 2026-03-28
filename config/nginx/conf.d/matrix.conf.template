@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════
+#  Nginx — Matrix (Conduit) Reverse Proxy
+# ═══════════════════════════════════════════════════════════════
+
+# Upstream for Conduit
+upstream conduit_backend {
+    server conduit:6167;
+}
+
+# HTTP → HTTPS redirect
+server {
+    listen 80;
+    server_name __DOMAIN__;
+
+    # ACME challenge for Let's Encrypt
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# HTTPS — Main Matrix server
+server {
+    listen 443 ssl;
+    server_name __DOMAIN__;
+
+    # TLS certificates
+    # Before TLS setup: uses self-signed fallback
+    # After running setup_tls.sh: uses Let's Encrypt certs
+    ssl_certificate /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # HSTS
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
+    # Well-known endpoints for Matrix federation
+    location /.well-known/matrix/server {
+        default_type application/json;
+        return 200 '{"m.server": "__DOMAIN__:443"}';
+    }
+
+    location /.well-known/matrix/client {
+        default_type application/json;
+        add_header Access-Control-Allow-Origin "*";
+        return 200 '{"m.homeserver": {"base_url": "https://__DOMAIN__"}}';
+    }
+
+    # Proxy all Matrix requests to Conduit
+    location /_matrix/ {
+        proxy_pass http://conduit_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        client_max_body_size 50m;
+    }
+
+    location / {
+        proxy_pass http://conduit_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Matrix federation port (8448)
+server {
+    listen 8448 ssl;
+    server_name __DOMAIN__;
+
+    ssl_certificate /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://conduit_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

@@ -1,0 +1,30 @@
+# ═══════════════════════════════════════════════════════════════
+#  Conduit (Matrix Homeserver) — Configuration
+#  Part of N.O.M.A.D. Swarm Intelligence
+# ═══════════════════════════════════════════════════════════════
+
+[global]
+# The server name (your domain)
+server_name = "__DOMAIN__"
+
+# Database path inside the container
+database_path = "/var/lib/matrix-conduit"
+database_backend = "rocksdb"
+
+# Listening port (internal — nginx handles external traffic)
+port = 6167
+address = "0.0.0.0"
+
+# Allow registration for initial setup
+# IMPORTANT: Set to false after creating your accounts
+allow_registration = true
+
+# Max upload size (20 MB)
+max_request_size = 20000000
+
+# Federation
+allow_federation = true
+trusted_servers = ["matrix.org"]
+
+# Logging
+log = "info"

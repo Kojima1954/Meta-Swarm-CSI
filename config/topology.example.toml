@@ -1,0 +1,51 @@
+# ═══════════════════════════════════════════════════════════════
+#  Swarm Topology — Node Definitions
+#  Part of N.O.M.A.D. Swarm Intelligence
+# ═══════════════════════════════════════════════════════════════
+#
+# This file defines the swarm topology: which nodes participate
+# in Conversational Swarm Intelligence deliberations.
+#
+# After install, this file is copied to topology.toml with your
+# node's entry filled in. Add peer nodes as you connect them.
+#
+# Each node needs:
+#   - id: Unique lowercase identifier
+#   - name: Human-readable display name
+#   - domain: FQDN where the node is reachable
+#   - public_key: Base64-encoded X25519 public key (from data/keys/node.pub)
+
+# ─── This Node ───────────────────────────────────────────────
+
+[[nodes]]
+id = "__NODE_ID__"
+name = "__NODE_NAME__"
+domain = "__DOMAIN__"
+public_key = ""  # Filled automatically from data/keys/node.pub
+role = "participant"
+is_self = true
+
+# ─── Peer Nodes (add your swarm peers below) ─────────────────
+
+# Example: Uncomment and edit to add a peer node
+#
+# [[nodes]]
+# id = "node-beta"
+# name = "Node Beta"
+# domain = "beta.example.org"
+# public_key = "BASE64_PUBLIC_KEY_FROM_PEER"
+# role = "participant"
+# is_self = false
+#
+# [[nodes]]
+# id = "node-gamma"
+# name = "Node Gamma"
+# domain = "gamma.example.org"
+# public_key = "BASE64_PUBLIC_KEY_FROM_PEER"
+# role = "observer"
+# is_self = false
+
+# ─── Roles ───────────────────────────────────────────────────
+# participant: Full participation in deliberations (voting + discussion)
+# observer: Can read deliberations but not vote
+# facilitator: Manages round progression (only one per swarm)
