@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import os
+import stat
 from pathlib import Path
 
 import structlog
@@ -13,9 +15,28 @@ from orchestrator.models.topology import SwarmNode
 log = structlog.get_logger()
 
 
+def _check_key_file_permissions(path: Path) -> None:
+    """Warn if a private key file has overly permissive permissions."""
+    try:
+        mode = path.stat().st_mode
+        # Check if group or other have any access
+        if mode & (stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP |
+                   stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH):
+            log.warn(
+                "crypto.insecure_key_permissions",
+                path=str(path),
+                mode=oct(mode),
+                recommendation="chmod 600",
+            )
+    except OSError:
+        pass  # In containers, stat may not behave as expected
+
+
 def load_keypair(private_path: str, public_path: str) -> tuple[PrivateKey, PublicKey]:
     """Load an X25519 keypair from base64-encoded files."""
-    priv_bytes = base64.b64decode(Path(private_path).read_text().strip())
+    priv_path = Path(private_path)
+    _check_key_file_permissions(priv_path)
+    priv_bytes = base64.b64decode(priv_path.read_text().strip())
     pub_bytes = base64.b64decode(Path(public_path).read_text().strip())
     private_key = PrivateKey(priv_bytes)
     public_key = PublicKey(pub_bytes)

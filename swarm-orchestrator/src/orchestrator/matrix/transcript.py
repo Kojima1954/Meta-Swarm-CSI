@@ -19,6 +19,9 @@ class TranscriptEntry:
 class TranscriptBuffer:
     """Rolling buffer of recent messages for LLM summarization."""
 
+    # Maximum size of a single message body (64 KB)
+    MAX_ENTRY_LENGTH = 65_536
+
     def __init__(
         self,
         max_messages: int = 200,
@@ -33,6 +36,9 @@ class TranscriptBuffer:
 
     def add(self, entry: TranscriptEntry) -> None:
         """Add a message and prune old entries."""
+        # Truncate oversized message bodies to prevent memory abuse
+        if len(entry.body) > self.MAX_ENTRY_LENGTH:
+            entry.body = entry.body[: self.MAX_ENTRY_LENGTH] + " [truncated]"
         self._entries.append(entry)
         if not entry.is_swarm_signal:
             self._unique_senders.add(entry.sender)

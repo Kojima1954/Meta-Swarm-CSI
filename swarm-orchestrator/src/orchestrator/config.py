@@ -66,6 +66,8 @@ class RoundsConfig(BaseModel):
 class SecurityConfig(BaseModel):
     key_path: str = "/data/keys/node.key"
     public_key_path: str = "/data/keys/node.pub"
+    # Users authorized to trigger !summarize (empty = allow all room members)
+    allowed_trigger_users: list[str] = []
 
 
 class LoggingConfig(BaseModel):

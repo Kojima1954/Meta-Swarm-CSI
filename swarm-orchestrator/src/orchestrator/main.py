@@ -88,8 +88,8 @@ async def run() -> None:
         settings.security.public_key_path,
     )
 
-    # Create shared HTTP client
-    http_client = httpx.AsyncClient()
+    # Create shared HTTP client with a default timeout to prevent hanging requests
+    http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
 
     # Initialize components
     transcript = TranscriptBuffer()
@@ -117,6 +117,7 @@ async def run() -> None:
         node_config=settings.node,
         transcript=transcript,
         on_manual_trigger=controller.trigger_manual,
+        allowed_trigger_users=settings.security.allowed_trigger_users,
     )
     controller._matrix = matrix  # noqa: SLF001 — DI wiring
 

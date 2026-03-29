@@ -21,6 +21,9 @@ _SWARM_DELIMITER_START = "<!--SWARM:"
 _SWARM_DELIMITER_END = ":SWARM-->"
 
 
+_MAX_PENDING_RETRIES = 50
+
+
 class FederationPublisher:
     """Publishes encrypted summaries to adjacent nodes via GoToSocial."""
 
@@ -99,8 +102,11 @@ class FederationPublisher:
                 target=target_node_id,
                 error=str(exc),
             )
-            # Queue for retry with original topology
-            self._pending.append((summary, topology))
+            # Queue for retry with original topology (bounded to prevent memory exhaustion)
+            if len(self._pending) < _MAX_PENDING_RETRIES:
+                self._pending.append((summary, topology))
+            else:
+                log.warn("publisher.retry_queue_full", dropped_summary=summary.summary_id())
 
     async def retry_pending(self) -> None:
         """Retry any queued failed deliveries."""
