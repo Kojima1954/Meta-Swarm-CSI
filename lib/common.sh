@@ -146,10 +146,14 @@ replace_placeholder() {
     local file="$1"
     local placeholder="$2"
     local value="$3"
-    # Escape special sed characters in value
+    # Escape all sed special characters in the replacement value.
+    # Using a BRE with | as delimiter: escape &, |, \, and newlines.
     local escaped_value
-    escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\|]/\\&/g')
-    sed -i "s|${placeholder}|${escaped_value}|g" "$file"
+    escaped_value=$(printf '%s' "$value" | sed -e 's/[&|\\/]/\\&/g' -e '$!s/$/\\/')
+    # Also escape the placeholder itself so regex metacharacters are treated literally
+    local escaped_placeholder
+    escaped_placeholder=$(printf '%s' "$placeholder" | sed 's/[][.*^$()+?{}|\\]/\\&/g')
+    sed -i "s|${escaped_placeholder}|${escaped_value}|g" "$file"
 }
 
 detect_nvidia_gpu() {

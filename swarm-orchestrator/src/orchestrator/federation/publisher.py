@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -68,9 +69,16 @@ class FederationPublisher:
         """Post an encrypted summary as a direct message via GoToSocial."""
         # Extract actor handle from URI for the mention
         # URI format: https://domain/users/node-id
-        parts = actor_uri.rstrip("/").split("/")
-        username = parts[-1]
-        domain = parts[2]
+        parsed = urlparse(actor_uri)
+        if not parsed.scheme or not parsed.hostname or not parsed.path:
+            log.error("publisher.invalid_actor_uri", uri=actor_uri)
+            return
+        path_parts = parsed.path.rstrip("/").split("/")
+        username = path_parts[-1] if path_parts else ""
+        domain = parsed.hostname
+        if not username or not domain:
+            log.error("publisher.invalid_actor_uri", uri=actor_uri)
+            return
         mention = f"@{username}@{domain}"
 
         status_text = (
