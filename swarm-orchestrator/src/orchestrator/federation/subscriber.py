@@ -21,6 +21,9 @@ log = structlog.get_logger()
 
 _SWARM_PATTERN = re.compile(r"<!--SWARM:(.*?):SWARM-->", re.DOTALL)
 
+# Maximum size of a decrypted payload (1 MB) — prevents memory exhaustion
+_MAX_PAYLOAD_BYTES = 1_048_576
+
 
 class FederationSubscriber:
     """Polls GoToSocial notifications for encrypted inbound summaries."""
@@ -87,7 +90,14 @@ class FederationSubscriber:
     def _decrypt_and_parse(self, ciphertext_b64: str) -> SwarmSummary | None:
         """Decrypt and parse a single encrypted summary."""
         try:
+            # Reject oversized ciphertext before decryption
+            if len(ciphertext_b64) > _MAX_PAYLOAD_BYTES * 2:
+                log.warn("subscriber.payload_too_large", size=len(ciphertext_b64))
+                return None
             plaintext = decrypt(ciphertext_b64, self._private_key)
+            if len(plaintext) > _MAX_PAYLOAD_BYTES:
+                log.warn("subscriber.decrypted_payload_too_large", size=len(plaintext))
+                return None
             data = json.loads(plaintext)
             return SwarmSummary.from_jsonld(data)
         except Exception as exc:
@@ -105,5 +115,13 @@ class FederationSubscriber:
             return False
         if node.is_self:
             log.debug("subscriber.skip_self")
+            return False
+        # Verify the sender is in the adjacent node list, not just any known node
+        adjacent_ids = {n.id for n in self._topology.adjacent_nodes}
+        if node.id not in adjacent_ids:
+            log.warn(
+                "subscriber.sender_not_adjacent",
+                source=summary.source_node_id,
+            )
             return False
         return True

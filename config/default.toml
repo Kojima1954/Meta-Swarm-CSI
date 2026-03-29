@@ -37,6 +37,8 @@ message_threshold = __MESSAGE_THRESHOLD__
 [security]
 key_path = "/data/keys/node.key"
 public_key_path = "/data/keys/node.pub"
+# Users allowed to trigger !summarize (empty array = allow all room members)
+allowed_trigger_users = []
 
 [logging]
 level = "info"

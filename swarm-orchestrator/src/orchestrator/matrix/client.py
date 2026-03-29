@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import time
 from typing import TYPE_CHECKING, Callable
 
@@ -38,11 +39,13 @@ class MatrixBridge:
         node_config: "NodeConfig",
         transcript: TranscriptBuffer,
         on_manual_trigger: Callable[[], None] | None = None,
+        allowed_trigger_users: list[str] | None = None,
     ) -> None:
         self._config = matrix_config
         self._node_config = node_config
         self.transcript = transcript
         self._on_manual_trigger = on_manual_trigger
+        self._allowed_trigger_users = allowed_trigger_users or []
 
         client_config = AsyncClientConfig(
             store_sync_tokens=True,
@@ -129,8 +132,11 @@ class MatrixBridge:
         )
         self.transcript.add(entry)
 
-        # Manual trigger via !summarize command
+        # Manual trigger via !summarize command (with authorization check)
         if body.strip().lower() == "!summarize" and self._on_manual_trigger:
+            if self._allowed_trigger_users and event.sender not in self._allowed_trigger_users:
+                log.warn("matrix.unauthorized_trigger", sender=event.sender)
+                return
             log.info("matrix.manual_trigger", sender=event.sender)
             self._on_manual_trigger()
 
@@ -201,21 +207,22 @@ def _format_signal_plain(summary: SwarmSummary, source_name: str) -> str:
 
 
 def _format_signal_html(summary: SwarmSummary, source_name: str) -> str:
-    positions = "".join(f"<li>{p}</li>" for p in summary.key_positions)
+    esc = html.escape
+    positions = "".join(f"<li>{esc(p)}</li>" for p in summary.key_positions)
     sections = [
-        f"<h4>\U0001f41d SWARM SIGNAL from {source_name} (Round {summary.round_number})</h4>",
+        f"<h4>\U0001f41d SWARM SIGNAL from {esc(source_name)} (Round {summary.round_number})</h4>",
         "<hr/>",
         f"<p><strong>\U0001f4cc Key Positions:</strong></p><ul>{positions}</ul>",
     ]
     if summary.emerging_consensus:
         sections.append(
-            f"<p><strong>\U0001f91d Emerging Consensus:</strong><br/>{summary.emerging_consensus}</p>"
+            f"<p><strong>\U0001f91d Emerging Consensus:</strong><br/>{esc(summary.emerging_consensus)}</p>"
         )
     if summary.dissenting_views:
-        dissent = "".join(f"<li>{v}</li>" for v in summary.dissenting_views)
+        dissent = "".join(f"<li>{esc(v)}</li>" for v in summary.dissenting_views)
         sections.append(f"<p><strong>\u26a1 Dissenting Views:</strong></p><ul>{dissent}</ul>")
     if summary.open_questions:
-        questions = "".join(f"<li>{q}</li>" for q in summary.open_questions)
+        questions = "".join(f"<li>{esc(q)}</li>" for q in summary.open_questions)
         sections.append(f"<p><strong>\u2753 Open Questions:</strong></p><ul>{questions}</ul>")
     sections.append("<hr/>")
     return "\n".join(sections)

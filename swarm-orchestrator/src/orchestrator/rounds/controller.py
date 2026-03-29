@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -59,6 +60,12 @@ class RoundController:
         self._manual_trigger = asyncio.Event()
         self._shutdown = asyncio.Event()
 
+        # Security: duplicate detection and rate limiting for inbound summaries
+        self._seen_summary_ids: set[str] = set()
+        self._inbound_rate: dict[str, list[float]] = {}  # node_id -> timestamps
+        self._max_inbound_per_node = 10  # max summaries per node per window
+        self._rate_window_seconds = 300.0
+
     def trigger_manual(self) -> None:
         """Called when a user types !summarize in chat."""
         self._manual_trigger.set()
@@ -100,6 +107,7 @@ class RoundController:
             self._inbound_queue.clear()
             self._transcript.clear()
             self._manual_trigger.clear()
+            self._seen_summary_ids.clear()
 
             log.info("rounds.complete", next_round=self.round_number)
 
@@ -194,8 +202,32 @@ class RoundController:
         except Exception as exc:
             log.error("rounds.propagate_error", error=str(exc))
 
+    def _is_rate_limited(self, node_id: str) -> bool:
+        """Check if a node has exceeded its inbound summary rate limit."""
+        now = time.monotonic()
+        timestamps = self._inbound_rate.get(node_id, [])
+        # Prune old timestamps outside the window
+        timestamps = [t for t in timestamps if now - t < self._rate_window_seconds]
+        self._inbound_rate[node_id] = timestamps
+        return len(timestamps) >= self._max_inbound_per_node
+
     async def receive_inbound(self, summary: SwarmSummary) -> None:
         """Handle an inbound summary from a peer node."""
+        sid = summary.summary_id()
+
+        # Duplicate detection
+        if sid in self._seen_summary_ids:
+            log.warn("rounds.inbound_duplicate", summary_id=sid)
+            return
+        self._seen_summary_ids.add(sid)
+
+        # Rate limiting per source node
+        node_id = summary.source_node_id
+        if self._is_rate_limited(node_id):
+            log.warn("rounds.inbound_rate_limited", source=node_id)
+            return
+        self._inbound_rate.setdefault(node_id, []).append(time.monotonic())
+
         self._inbound_queue.append(summary)
 
         # Inject into the local Matrix room immediately
