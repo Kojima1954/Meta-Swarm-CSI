@@ -74,6 +74,13 @@ class LoggingConfig(BaseModel):
     level: str = "info"
 
 
+class TopologyConfig(BaseModel):
+    mode: str = "static"  # "static" or "murmuration"
+    max_neighbors: int = 7
+    rewire_every_n_rounds: int = 10
+    state_path: str = "/data/topology/murmuration_state.json"
+
+
 class Settings(BaseModel):
     node: NodeConfig
     matrix: MatrixConfig = MatrixConfig()
@@ -82,6 +89,7 @@ class Settings(BaseModel):
     rounds: RoundsConfig = RoundsConfig()
     security: SecurityConfig = SecurityConfig()
     logging: LoggingConfig = LoggingConfig()
+    topology: TopologyConfig = TopologyConfig()
 
 
 def load_settings(path: str | None = None) -> Settings:

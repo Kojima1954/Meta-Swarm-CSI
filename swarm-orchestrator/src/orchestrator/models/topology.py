@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+
 from pydantic import BaseModel, Field, computed_field
 
 
@@ -24,6 +27,15 @@ class SwarmNode(BaseModel):
         if self.domain:
             return f"https://{self.domain}/users/{self.id}"
         return ""
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def node_id(self) -> bytes | None:
+        """160-bit XOR-keyspace position: SHA1(base64_decode(public_key))."""
+        if not self.public_key:
+            return None
+        pub_bytes = base64.b64decode(self.public_key)
+        return hashlib.sha1(pub_bytes).digest()  # noqa: S324 — 160-bit ID, not security-critical
 
 
 class Topology(BaseModel):

@@ -19,6 +19,7 @@ from orchestrator.matrix.transcript import TranscriptBuffer
 from orchestrator.rag.store import VectorStore
 from orchestrator.rounds.controller import RoundController
 from orchestrator.topology.manager import TopologyManager
+from orchestrator.topology.murmuration import MurmurationTopology
 
 log = structlog.get_logger()
 
@@ -77,16 +78,29 @@ async def run() -> None:
         version="0.1.0",
     )
 
-    # Load topology
-    topology_path = "/etc/orchestrator/topology.toml"
-    topo_manager = TopologyManager(topology_path, settings.node.id)
-    topology = topo_manager.load()
-
     # Load encryption keys
     private_key, public_key = load_keypair(
         settings.security.key_path,
         settings.security.public_key_path,
     )
+
+    # Derive the base64-encoded public key string for murmuration node-ID derivation
+    import base64
+    from pathlib import Path
+    self_public_key_b64 = Path(settings.security.public_key_path).read_text().strip()
+
+    # Load topology (static or murmuration depending on config)
+    topology_path = "/etc/orchestrator/topology.toml"
+    topo_manager = TopologyManager(
+        topology_path,
+        settings.node.id,
+        topology_config=settings.topology,
+        self_public_key_b64=self_public_key_b64,
+    )
+    topology = topo_manager.load()
+
+    # Resolve murmuration handle (None if static mode)
+    murmuration = topology if isinstance(topology, MurmurationTopology) else None
 
     # Create shared HTTP client with a default timeout to prevent hanging requests
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
@@ -110,6 +124,7 @@ async def run() -> None:
         publisher=publisher,
         subscriber=subscriber,
         topology=topology,
+        murmuration=murmuration,
     )
 
     matrix = MatrixBridge(

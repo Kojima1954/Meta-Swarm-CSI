@@ -13,6 +13,14 @@ from nacl.public import PrivateKey
 from orchestrator.federation.crypto import decrypt
 from orchestrator.models.summary import SwarmSummary
 from orchestrator.models.topology import Topology
+from orchestrator.topology.murmuration import (
+    MSGTYPE_NEIGHBOR_BROADCAST,
+    MSGTYPE_NEIGHBOR_REQUEST,
+    MSGTYPE_NEIGHBOR_RESPONSE,
+    MSGTYPE_SUMMARY,
+    MSGTYPE_TOPOLOGY_QUERY,
+    MSGTYPE_TOPOLOGY_RESPONSE,
+)
 
 if TYPE_CHECKING:
     from orchestrator.config import FederationConfig
@@ -26,7 +34,16 @@ _MAX_PAYLOAD_BYTES = 1_048_576
 
 
 class FederationSubscriber:
-    """Polls GoToSocial notifications for encrypted inbound summaries."""
+    """Polls GoToSocial notifications for encrypted inbound summaries.
+
+    In addition to :class:`SwarmSummary` payloads, the subscriber also handles
+    murmuration neighbor-protocol messages.  These are collected into three lists
+    that the round controller drains during each rewire cycle:
+
+        neighbor_requests  — list of (sender_actor_uri, payload_dict)
+        topology_queries   — list of (sender_actor_uri, payload_dict)
+        topology_messages  — list of payload_dict (responses / broadcasts)
+    """
 
     def __init__(
         self,
@@ -41,8 +58,17 @@ class FederationSubscriber:
         self._topology = topology
         self._last_notification_id: str | None = None
 
+        # Murmuration neighbor-protocol queues (drained by RoundController)
+        self.neighbor_requests: list[tuple[str, dict]] = []
+        self.topology_queries: list[tuple[str, dict]] = []
+        self.topology_messages: list[dict] = []
+
     async def poll(self) -> list[SwarmSummary]:
-        """Poll for new notifications and extract swarm summaries."""
+        """Poll for new notifications and extract swarm summaries.
+
+        Neighbor-protocol messages are routed to the appropriate queues instead
+        of being returned here.
+        """
         summaries: list[SwarmSummary] = []
 
         try:
@@ -79,18 +105,59 @@ class FederationSubscriber:
                 continue
 
             ciphertext_b64 = match.group(1).strip()
-            summary = self._decrypt_and_parse(ciphertext_b64)
-            if summary and self._validate_sender(summary):
-                summaries.append(summary)
+            # Try to extract sender actor URI for topology-protocol attribution
+            sender_uri = self._extract_sender_uri(notif)
+
+            plaintext = self._decrypt_payload(ciphertext_b64)
+            if plaintext is None:
+                continue
+
+            try:
+                payload = json.loads(plaintext)
+            except Exception as exc:
+                log.warn("subscriber.json_parse_failed", error=str(exc))
+                continue
+
+            msg_type = payload.get("type", MSGTYPE_SUMMARY)
+
+            if msg_type == MSGTYPE_SUMMARY:
+                summary = self._parse_summary(payload)
+                if summary and self._validate_sender(summary):
+                    summaries.append(summary)
+
+            elif msg_type == MSGTYPE_NEIGHBOR_REQUEST:
+                log.info("subscriber.neighbor_request", from_uri=sender_uri)
+                self.neighbor_requests.append((sender_uri, payload))
+
+            elif msg_type == MSGTYPE_TOPOLOGY_QUERY:
+                log.info("subscriber.topology_query", from_uri=sender_uri)
+                self.topology_queries.append((sender_uri, payload))
+
+            elif msg_type in (
+                MSGTYPE_NEIGHBOR_RESPONSE,
+                MSGTYPE_TOPOLOGY_RESPONSE,
+                MSGTYPE_NEIGHBOR_BROADCAST,
+            ):
+                log.info("subscriber.topology_message", type=msg_type)
+                self.topology_messages.append(payload)
+
+            else:
+                log.debug("subscriber.unknown_type", msg_type=msg_type)
 
         if summaries:
             log.info("subscriber.received", count=len(summaries))
         return summaries
 
-    def _decrypt_and_parse(self, ciphertext_b64: str) -> SwarmSummary | None:
-        """Decrypt and parse a single encrypted summary."""
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    def _extract_sender_uri(self, notif: dict) -> str:
+        """Extract the actor URI of the notification sender."""
+        account = notif.get("account", {})
+        return account.get("url", "")
+
+    def _decrypt_payload(self, ciphertext_b64: str) -> bytes | None:
+        """Decrypt a single SWARM-envelope ciphertext; return None on failure."""
         try:
-            # Reject oversized ciphertext before decryption
             if len(ciphertext_b64) > _MAX_PAYLOAD_BYTES * 2:
                 log.warn("subscriber.payload_too_large", size=len(ciphertext_b64))
                 return None
@@ -98,10 +165,17 @@ class FederationSubscriber:
             if len(plaintext) > _MAX_PAYLOAD_BYTES:
                 log.warn("subscriber.decrypted_payload_too_large", size=len(plaintext))
                 return None
-            data = json.loads(plaintext)
-            return SwarmSummary.from_jsonld(data)
+            return plaintext
         except Exception as exc:
             log.warn("subscriber.decrypt_failed", error=str(exc))
+            return None
+
+    def _parse_summary(self, payload: dict) -> SwarmSummary | None:
+        """Parse a JSON-LD SwarmSummary payload."""
+        try:
+            return SwarmSummary.from_jsonld(payload)
+        except Exception as exc:
+            log.warn("subscriber.summary_parse_failed", error=str(exc))
             return None
 
     def _validate_sender(self, summary: SwarmSummary) -> bool:

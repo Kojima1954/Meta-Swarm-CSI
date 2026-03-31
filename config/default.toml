@@ -42,3 +42,13 @@ allowed_trigger_users = []
 
 [logging]
 level = "info"
+
+# ── Murmuration Topology (optional) ────────────────────────────────────────
+# Set mode = "murmuration" to enable self-organizing Kademlia-XOR topology.
+# In "static" mode (default) the topology.toml file controls neighbors exactly
+# as before — no behaviour change.
+[topology]
+mode = "static"           # "static" | "murmuration"
+max_neighbors = 7         # Hard cap — the biological constant from STARFLAG research
+rewire_every_n_rounds = 10
+state_path = "/data/topology/murmuration_state.json"
