@@ -142,7 +142,10 @@ class RoundController:
             )
             for task in pending:
                 task.cancel()
-            return self._manual_trigger.is_set()
+            if self._manual_trigger.is_set():
+                self._manual_trigger.clear()
+                return True
+            return False
 
         else:
             log.error("rounds.unknown_mode", mode=mode)

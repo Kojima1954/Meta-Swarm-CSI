@@ -54,6 +54,9 @@ class FederationPublisher:
         for node in adjacent:
             if node.id not in encrypted:
                 continue
+            if not node.actor_uri:
+                log.warn("publisher.skip_no_uri", node_id=node.id)
+                continue
             ciphertext_b64 = encrypted[node.id]
             await self._send_dm(summary, topology, node.actor_uri, node.id, ciphertext_b64)
 

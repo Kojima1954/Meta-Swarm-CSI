@@ -33,7 +33,7 @@ setup_tls() {
 
     # ── Request certificate via certbot ───────────────────────
     log_info "Requesting Let's Encrypt certificate..."
-    docker run --rm \
+    if ! docker run --rm \
         -v certbot-etc:/etc/letsencrypt \
         -v certbot-var:/var/lib/letsencrypt \
         -p 80:80 \
@@ -42,9 +42,7 @@ setup_tls() {
         -d "$domain" \
         --agree-tos \
         --email "$email" \
-        --non-interactive
-
-    if [[ $? -ne 0 ]]; then
+        --non-interactive; then
         log_error "Certificate request failed. Ensure DNS A record points to this server."
         # Restart nginx anyway
         (cd "$PROJECT_ROOT" && docker compose start nginx) || true
