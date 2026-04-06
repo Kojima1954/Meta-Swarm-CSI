@@ -10,7 +10,7 @@ wait_for_nomad() {
         log_success "N.O.M.A.D. Command Center is ready."
     else
         log_error "N.O.M.A.D. Command Center did not respond within 180 seconds."
-        log_error "Check logs with: docker compose -f /opt/project-nomad/docker-compose.yml logs"
+        log_error "Check logs with: docker compose -p project-nomad -f /opt/project-nomad/compose.yml logs"
         exit 1
     fi
 }
