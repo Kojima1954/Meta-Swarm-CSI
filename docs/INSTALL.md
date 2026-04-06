@@ -155,8 +155,8 @@ To switch from self-managed to NOMAD-managed:
 ### N.O.M.A.D. Command Center not responding
 
 ```bash
-docker compose -f /opt/project-nomad/docker-compose.yml logs
-docker compose -f /opt/project-nomad/docker-compose.yml ps
+docker compose -p project-nomad -f /opt/project-nomad/compose.yml logs
+docker compose -p project-nomad -f /opt/project-nomad/compose.yml ps
 ```
 
 ### Swarm services not starting

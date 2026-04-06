@@ -81,12 +81,12 @@ run_preflight_checks() {
 
     # ── Existing N.O.M.A.D. check ────────────────────────────
     NOMAD_ALREADY_INSTALLED=false
-    if [[ -f /opt/project-nomad/docker-compose.yml ]]; then
-        if docker compose -f /opt/project-nomad/docker-compose.yml ps --status running 2>/dev/null | grep -q "running"; then
+    if [[ -f /opt/project-nomad/compose.yml ]]; then
+        if docker compose -p project-nomad -f /opt/project-nomad/compose.yml ps --status running 2>/dev/null | grep -q "running"; then
             NOMAD_ALREADY_INSTALLED=true
             log_info "Existing N.O.M.A.D. installation detected and running."
         else
-            log_info "N.O.M.A.D. files found at /opt/project-nomad but not running."
+            log_info "N.O.M.A.D. compose file found at /opt/project-nomad but not running."
         fi
     else
         log_info "No existing N.O.M.A.D. installation found."
