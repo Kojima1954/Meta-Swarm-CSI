@@ -207,6 +207,70 @@ For testing, use Let's Encrypt staging:
 # Modify the certbot command in lib/setup_tls.sh to add --staging
 ```
 
+### Services unreachable from the Windows host (VM deployments)
+
+If you run the stack inside a VM (e.g., WSL 2, Hyper-V, VirtualBox) and can
+`curl` a service from **inside** the VM but not from Windows, the most common
+cause is the service binding to `127.0.0.1` instead of `0.0.0.0`.
+
+Ollama and Qdrant intentionally bind to `127.0.0.1` in `docker-compose.yml`
+because they are back-end services that should not be publicly exposed. Other
+containers reach them over the internal Docker network using service names
+(`ollama:11434`, `qdrant:6333`). If you need to reach them from the host for
+debugging:
+
+```yaml
+# docker-compose.override.yml (do NOT commit)
+services:
+  ollama:
+    ports:
+      - "0.0.0.0:11434:11434"
+```
+
+> **Security note:** Never expose back-end ports to `0.0.0.0` in production.
+
+### Conduit well-known federation not working
+
+Conduit v0.8+ uses a flat configuration key for well-known delegation. The
+old dotted form (`well_known.server`) is **silently ignored**. Make sure
+`config/conduit/conduit.toml` uses the new format:
+
+```toml
+well_known_server = "yourdomain.example:443"
+well_known_client = "https://yourdomain.example"
+```
+
+As a drop-in alternative, [conduwuit](https://github.com/girlbossceo/conduwuit)
+is a more actively maintained community fork of Conduit. Change
+`CONDUIT_IMAGE` in `.env` to switch:
+
+```
+CONDUIT_IMAGE=ghcr.io/girlbossceo/conduwuit:latest
+```
+
+### GoToSocial upgrade notes
+
+GoToSocial source has moved to Codeberg
+(<https://codeberg.org/superseriousbusiness/gotosocial>) as of v0.20.0 — the
+GitHub mirror no longer exists. Docker Hub images are still published under
+`superseriousbusiness/gotosocial`.
+
+> **⚠ Database migrations:** Upgrading from a version older than 0.20.0 may
+> trigger long-running database migrations. **Back up your data** before
+> upgrading and allow extra time for the container to become ready.
+
+### Ollama model reloading after restart
+
+On CPU-only hosts, Ollama works reliably. However, if the container restarts
+and `OLLAMA_KEEP_ALIVE` is not set, the model will be unloaded from memory
+and the next request will take 10–30 seconds while it reloads. The default
+`docker-compose.yml` sets `OLLAMA_KEEP_ALIVE=-1` (infinite) to prevent this.
+Override via `.env`:
+
+```
+OLLAMA_KEEP_ALIVE=30m
+```
+
 ---
 
 ## Updating
