@@ -38,7 +38,10 @@ install_nomad() {
     fi
 
     # ── Generate credentials and substitute ───────────────────
-    local app_key mysql_root_pass mysql_user_pass local_ip
+    local app_key
+    local mysql_root_pass
+    local mysql_user_pass
+    local local_ip
     app_key=$(generate_password 32)
     mysql_root_pass=$(generate_password 32)
     mysql_user_pass=$(generate_password 32)
