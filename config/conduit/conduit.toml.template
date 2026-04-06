@@ -26,5 +26,10 @@ max_request_size = 20000000
 allow_federation = true
 trusted_servers = ["matrix.org"]
 
+# Well-known delegation (flat key — Conduit v0.8+ dropped the dotted form)
+# NOTE: Do NOT use "well_known.server" — Conduit silently ignores it.
+well_known_server = "__DOMAIN__:443"
+well_known_client = "https://__DOMAIN__"
+
 # Logging
 log = "info"

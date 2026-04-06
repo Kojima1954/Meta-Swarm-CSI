@@ -17,6 +17,12 @@ services:
     profiles: ["self-managed"]
     ports:
       - "127.0.0.1:11434:11434"
+    environment:
+      # Keep models loaded in memory across requests.  Without this, a
+      # container restart unloads the model and the next request takes
+      # 10-30 s while it reloads.  Set to "-1" (infinite) for CPU-only
+      # deployments where memory is plentiful, or a duration like "30m".
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -42,6 +48,9 @@ services:
 
   # ─── Matrix Homeserver ─────────────────────────────────────
 
+  # Matrix Conduit homeserver.  conduwuit (ghcr.io/girlbossceo/conduwuit)
+  # is a drop-in, more actively maintained community fork — change
+  # CONDUIT_IMAGE in .env to switch.
   conduit:
     image: ${CONDUIT_IMAGE:-matrixconduit/matrix-conduit:latest}
     restart: unless-stopped
@@ -72,7 +81,7 @@ services:
   # ─── Fediverse / ActivityPub ───────────────────────────────
 
   gotosocial:
-    image: ${GOTOSOCIAL_IMAGE:-superseriousbusiness/gotosocial:latest}
+    image: ${GOTOSOCIAL_IMAGE:-superseriousbusiness/gotosocial:0.21.2}
     restart: unless-stopped
     volumes:
       - gotosocial-data:/gotosocial/storage

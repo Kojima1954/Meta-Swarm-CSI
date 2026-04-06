@@ -64,7 +64,7 @@ OLLAMA_IMAGE=ollama/ollama:latest
 QDRANT_IMAGE=qdrant/qdrant:latest
 CONDUIT_IMAGE=matrixconduit/matrix-conduit:latest
 ELEMENT_IMAGE=vectorim/element-web:latest
-GOTOSOCIAL_IMAGE=superseriousbusiness/gotosocial:latest
+GOTOSOCIAL_IMAGE=superseriousbusiness/gotosocial:0.21.2
 NGINX_IMAGE=nginx:1.27-alpine
 
 # ─── AI Models ───

@@ -41,9 +41,9 @@ Matrix homeserver, Fediverse endpoint, and the Swarm Orchestrator.
 | Service | Role |
 |---------|------|
 | [Project N.O.M.A.D.](https://github.com/Crosstalk-Solutions/project-nomad) | Offline-first survival computer (base platform) |
-| [Conduit](https://conduit.rs/) | Matrix homeserver for local chat |
+| [Conduit](https://conduit.rs/) / [conduwuit](https://github.com/girlbossceo/conduwuit) | Matrix homeserver for local chat (conduwuit is a more actively maintained fork) |
 | [Element Web](https://element.io/) | Matrix web client |
-| [GoToSocial](https://gotosocial.org/) | ActivityPub/Fediverse endpoint for inter-node communication |
+| [GoToSocial](https://gotosocial.org/) | ActivityPub/Fediverse endpoint for inter-node communication ([source on Codeberg](https://codeberg.org/superseriousbusiness/gotosocial)) |
 | [Ollama](https://ollama.ai/) | Local LLM inference |
 | [Qdrant](https://qdrant.tech/) | Vector database for RAG context |
 | Nginx | Reverse proxy with TLS termination |
