@@ -74,6 +74,26 @@ class LoggingConfig(BaseModel):
     level: str = "info"
 
 
+class WebConfig(BaseModel):
+    """Configuration for the built-in web UI and REST/WebSocket API."""
+
+    enabled: bool = True
+    host: str = "0.0.0.0"
+    port: int = 8080
+    # Bearer token required for mutating endpoints (trigger rounds, etc.).
+    # Empty string disables control endpoints entirely.
+    api_token: str = ""
+    # Allow cross-origin requests from these origins. Empty = same-origin only.
+    cors_origins: list[str] = []
+
+    @model_validator(mode="after")
+    def _apply_env(self) -> "WebConfig":
+        env_token = os.environ.get("WEB_API_TOKEN")
+        if env_token and not self.api_token:
+            self.api_token = env_token
+        return self
+
+
 class Settings(BaseModel):
     node: NodeConfig
     matrix: MatrixConfig = MatrixConfig()
@@ -82,6 +102,7 @@ class Settings(BaseModel):
     rounds: RoundsConfig = RoundsConfig()
     security: SecurityConfig = SecurityConfig()
     logging: LoggingConfig = LoggingConfig()
+    web: WebConfig = WebConfig()
 
 
 def load_settings(path: str | None = None) -> Settings:

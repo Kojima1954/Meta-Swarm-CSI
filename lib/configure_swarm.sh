@@ -33,6 +33,7 @@ configure_swarm() {
     MESSAGE_THRESHOLD=$(prompt_or_env "MESSAGE_THRESHOLD" "Message threshold (for message_count mode)" "50")
     MATRIX_ADMIN_PASSWORD=$(prompt_or_env "MATRIX_ADMIN_PASSWORD" "Matrix admin password" "$(generate_password 24)")
     GOTOSOCIAL_ADMIN_EMAIL=$(prompt_or_env "GOTOSOCIAL_ADMIN_EMAIL" "GoToSocial admin email" "")
+    WEB_API_TOKEN=$(prompt_or_env "WEB_API_TOKEN" "Web UI API token (for round-trigger control)" "$(generate_password 32)")
 
     # ── Generate .env file ────────────────────────────────────
     log_info "Generating .env file..."
@@ -81,6 +82,11 @@ GOTOSOCIAL_ADMIN_EMAIL=${GOTOSOCIAL_ADMIN_EMAIL}
 ROUND_MODE=${ROUND_MODE}
 ROUND_INTERVAL=${ROUND_INTERVAL}
 MESSAGE_THRESHOLD=${MESSAGE_THRESHOLD}
+
+# ─── Web UI ───
+# Bearer token required for control endpoints (manual round trigger).
+# Empty disables those endpoints; read-only views still work.
+WEB_API_TOKEN=${WEB_API_TOKEN}
 EOF
 
     chmod 600 "${PROJECT_ROOT}/.env"
@@ -116,6 +122,7 @@ process_templates() {
         "config/nginx/conf.d/matrix.conf.template:config/nginx/conf.d/matrix.conf"
         "config/nginx/conf.d/gotosocial.conf.template:config/nginx/conf.d/gotosocial.conf"
         "config/nginx/conf.d/element.conf.template:config/nginx/conf.d/element.conf"
+        "config/nginx/conf.d/swarm.conf.template:config/nginx/conf.d/swarm.conf"
     )
 
     local entry src dest

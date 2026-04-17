@@ -47,7 +47,7 @@ Matrix homeserver, Fediverse endpoint, and the Swarm Orchestrator.
 | [Ollama](https://ollama.ai/) | Local LLM inference |
 | [Qdrant](https://qdrant.tech/) | Vector database for RAG context |
 | Nginx | Reverse proxy with TLS termination |
-| **Swarm Orchestrator** | Custom Python service orchestrating the CSI lifecycle |
+| **Swarm Orchestrator** | Custom Python service orchestrating the CSI lifecycle, including a built-in web UI and REST/WebSocket API |
 
 ## Architecture
 
@@ -59,7 +59,8 @@ swarm-orchestrator/          # The CSI engine (Python, async)
 │   ├── rag/                 # Qdrant vector store for context retrieval
 │   ├── federation/          # Encrypted summary exchange via GoToSocial
 │   ├── topology/            # Swarm graph management
-│   └── rounds/              # DISCUSS → SUMMARIZE → PROPAGATE state machine
+│   ├── rounds/              # DISCUSS → SUMMARIZE → PROPAGATE state machine
+│   └── web/                 # FastAPI web UI + REST + WebSocket API
 ```
 
 The orchestrator runs as a single Docker container alongside the infrastructure
@@ -78,7 +79,79 @@ Each deliberation round follows three phases:
    and sent as a direct message via ActivityPub to adjacent nodes.
 
 Rounds can be triggered by timer (default: 5 minutes), message count threshold,
-or manually via `!summarize` in chat.
+or manually via `!summarize` in chat — or via the web UI / REST API.
+
+## Web UI
+
+Every node ships with a production web UI served by the orchestrator itself.
+After install it's available at:
+
+```
+https://swarm.<your-domain>
+```
+
+and directly on the internal network at `http://swarm-orchestrator:8080`.
+
+The UI provides:
+
+- **Dashboard** — live phase, round number, transcript stats, uptime, and a
+  countdown to the next automatic round. Includes a one-click trigger button.
+- **Summaries** — browse and filter every SwarmSummary produced locally or
+  received from peers, with key positions, consensus, dissent, and open
+  questions rendered structurally.
+- **Transcript** — live Matrix room feed, with Swarm Signals highlighted.
+- **Topology** — circular graph of the swarm, showing each peer's role and
+  whether their public key is loaded.
+- **Events** — tail of every orchestrator event (round transitions,
+  federation activity, manual triggers).
+- **Settings** — view the active (redacted) config, manage the API token.
+
+### REST API
+
+Every panel in the UI is also a plain REST endpoint. Useful for scripting
+or integrating another front-end.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET`  | `/api/v1/health` | Liveness probe (no auth) |
+| `GET`  | `/api/v1/status` | Node, phase, round, transcript stats |
+| `GET`  | `/api/v1/topology` | Nodes + roles + key-loaded flags |
+| `GET`  | `/api/v1/transcript?limit=N` | Recent transcript entries |
+| `GET`  | `/api/v1/summaries?limit=N` | Recent SwarmSummaries |
+| `GET`  | `/api/v1/events/recent?limit=N` | Recent event bus history |
+| `GET`  | `/api/v1/config` | Active config, secrets redacted |
+| `POST` | `/api/v1/rounds/trigger` | Trigger a round (requires bearer token) |
+| `WS`   | `/ws` | Live event stream |
+
+Interactive docs are available at `/api/docs` (FastAPI-generated).
+
+### Authentication
+
+Mutating endpoints (`POST /api/v1/rounds/trigger`) require a bearer token.
+
+- The installer generates a random 32-char token and writes it to `.env`
+  as `WEB_API_TOKEN`.
+- Paste the token into the Settings tab of the UI once; it's stored in
+  `localStorage` and sent on every control request.
+- To disable control endpoints entirely, set `WEB_API_TOKEN=` (empty).
+  Read-only views still work.
+
+### WebSocket event types
+
+Subscribe to `/ws` to receive JSON-encoded events as the orchestrator runs:
+
+| Event type | Data |
+|-----------|------|
+| `orchestrator.running` | `node_id`, `version` |
+| `round.phase` | `phase`, `round` |
+| `round.complete` | `next_round` |
+| `round.failed` | `round` |
+| `round.manual_trigger` | `source` |
+| `message.received` | `timestamp`, `sender`, `body`, `is_swarm_signal`, `message_count`, `participant_count` |
+| `summary.created` | `origin` (`local`/`federation`), `source_name`, `summary` (full SwarmSummary) |
+
+On connect the server replays the last ~50 events so newly-opened UIs have
+immediate context; thereafter events are pushed live.
 
 ## Configuration
 
@@ -151,8 +224,8 @@ The swarm begins deliberating automatically.
 ├── swarm-orchestrator/       # The CSI engine
 │   ├── Dockerfile
 │   ├── pyproject.toml
-│   ├── src/orchestrator/     # Application source
-│   └── tests/                # 36 passing tests
+│   ├── src/orchestrator/     # Application source (core + web UI)
+│   └── tests/                # 58 passing tests
 └── docs/
     └── INSTALL.md            # Detailed installation guide
 ```

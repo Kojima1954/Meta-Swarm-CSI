@@ -23,6 +23,7 @@ from orchestrator.models.summary import SwarmSummary
 
 if TYPE_CHECKING:
     from orchestrator.config import MatrixConfig, NodeConfig
+    from orchestrator.web.events import EventBus
 
 log = structlog.get_logger()
 
@@ -40,12 +41,14 @@ class MatrixBridge:
         transcript: TranscriptBuffer,
         on_manual_trigger: Callable[[], None] | None = None,
         allowed_trigger_users: list[str] | None = None,
+        events: "EventBus | None" = None,
     ) -> None:
         self._config = matrix_config
         self._node_config = node_config
         self.transcript = transcript
         self._on_manual_trigger = on_manual_trigger
         self._allowed_trigger_users = allowed_trigger_users or []
+        self._events = events
 
         client_config = AsyncClientConfig(
             store_sync_tokens=True,
@@ -131,6 +134,17 @@ class MatrixBridge:
             is_swarm_signal=is_signal,
         )
         self.transcript.add(entry)
+
+        if self._events:
+            await self._events.publish(
+                "message.received",
+                timestamp=entry.timestamp,
+                sender=entry.sender,
+                body=entry.body,
+                is_swarm_signal=entry.is_swarm_signal,
+                message_count=self.transcript.message_count,
+                participant_count=self.transcript.participant_count,
+            )
 
         # Manual trigger via !summarize command (with authorization check)
         if body.strip().lower() == "!summarize" and self._on_manual_trigger:

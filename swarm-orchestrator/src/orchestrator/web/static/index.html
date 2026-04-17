@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>Swarm Orchestrator</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <div id="app">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">&#x1F41D;</div>
+                <div class="brand-text">
+                    <div class="brand-title">Swarm</div>
+                    <div class="brand-subtitle">Orchestrator</div>
+                </div>
+            </div>
+
+            <nav class="nav" aria-label="Primary">
+                <a href="#/dashboard" data-route="dashboard" class="nav-item active">
+                    <span class="nav-icon">&#x25A3;</span>Dashboard
+                </a>
+                <a href="#/summaries" data-route="summaries" class="nav-item">
+                    <span class="nav-icon">&#x2630;</span>Summaries
+                </a>
+                <a href="#/transcript" data-route="transcript" class="nav-item">
+                    <span class="nav-icon">&#x1F4AC;</span>Transcript
+                </a>
+                <a href="#/topology" data-route="topology" class="nav-item">
+                    <span class="nav-icon">&#x25CE;</span>Topology
+                </a>
+                <a href="#/events" data-route="events" class="nav-item">
+                    <span class="nav-icon">&#x29C9;</span>Events
+                </a>
+                <a href="#/settings" data-route="settings" class="nav-item">
+                    <span class="nav-icon">&#x2699;</span>Settings
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection" id="connection">
+                    <span class="dot" data-status="disconnected"></span>
+                    <span id="connection-text">Connecting&hellip;</span>
+                </div>
+                <div class="node-badge" id="node-badge">&mdash;</div>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 id="view-title">Dashboard</h1>
+                </div>
+                <div class="topbar-right">
+                    <span class="chip" id="chip-phase">Phase: &mdash;</span>
+                    <span class="chip" id="chip-round">Round: &mdash;</span>
+                    <span class="chip chip-mode" id="chip-mode">Mode: &mdash;</span>
+                </div>
+            </header>
+
+            <section id="view" class="view">
+                <div class="loading">Loading&hellip;</div>
+            </section>
+        </main>
+    </div>
+
+    <template id="view-dashboard">
+        <div class="grid grid-stats">
+            <div class="card stat">
+                <div class="stat-label">Phase</div>
+                <div class="stat-value" data-bind="phase">&mdash;</div>
+                <div class="stat-meta" data-bind="round">Round &mdash;</div>
+            </div>
+            <div class="card stat">
+                <div class="stat-label">Messages</div>
+                <div class="stat-value" data-bind="message_count">&mdash;</div>
+                <div class="stat-meta"><span data-bind="participant_count">&mdash;</span> participants</div>
+            </div>
+            <div class="card stat">
+                <div class="stat-label">Token Estimate</div>
+                <div class="stat-value" data-bind="token_estimate">&mdash;</div>
+                <div class="stat-meta">Current transcript</div>
+            </div>
+            <div class="card stat">
+                <div class="stat-label">Uptime</div>
+                <div class="stat-value" data-bind="uptime">&mdash;</div>
+                <div class="stat-meta"><span data-bind="subscribers">0</span> websocket clients</div>
+            </div>
+        </div>
+
+        <div class="grid grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Round Control</h2>
+                    <span class="badge" data-bind="mode-badge">&mdash;</span>
+                </div>
+                <div class="card-body">
+                    <div class="countdown" id="countdown">
+                        <div class="countdown-label">Next automatic trigger in</div>
+                        <div class="countdown-value" id="countdown-value">&mdash;</div>
+                    </div>
+                    <div class="round-actions">
+                        <button id="btn-trigger" class="btn btn-primary">
+                            &#x26A1; Trigger Round Now
+                        </button>
+                        <div id="trigger-status" class="status-line"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Latest Summary</h2>
+                    <span class="badge" id="latest-origin">&mdash;</span>
+                </div>
+                <div class="card-body" id="latest-summary">
+                    <div class="empty-state">No summaries yet. Waiting for the first round to complete&hellip;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Live Activity</h2>
+            </div>
+            <div class="card-body">
+                <ul id="activity-feed" class="activity-feed"></ul>
+            </div>
+        </div>
+    </template>
+
+    <template id="view-summaries">
+        <div class="toolbar">
+            <input type="search" id="summary-filter" placeholder="Filter summaries (topic, source, text)&hellip;" class="input">
+            <span class="muted" id="summary-count">0 summaries</span>
+        </div>
+        <div id="summary-list" class="summary-list"></div>
+    </template>
+
+    <template id="view-transcript">
+        <div class="toolbar">
+            <span class="muted">Messages update in real time via WebSocket.</span>
+            <span class="muted" id="transcript-meta">0 messages / 0 participants</span>
+        </div>
+        <div id="transcript-log" class="transcript-log"></div>
+    </template>
+
+    <template id="view-topology">
+        <div class="toolbar">
+            <span class="muted">Swarm node topology. Yellow = this node, blue = peers.</span>
+            <span class="muted" id="topology-meta">0 nodes</span>
+        </div>
+        <div class="topology-wrap">
+            <svg id="topology-svg" viewBox="0 0 800 500" role="img" aria-label="Swarm topology graph"></svg>
+        </div>
+        <div id="topology-list" class="topology-list"></div>
+    </template>
+
+    <template id="view-events">
+        <div class="toolbar">
+            <span class="muted">Live orchestrator event stream (most recent first).</span>
+            <button id="btn-clear-events" class="btn btn-ghost">Clear</button>
+        </div>
+        <ol id="event-log" class="event-log"></ol>
+    </template>
+
+    <template id="view-settings">
+        <div class="card">
+            <div class="card-header"><h2>API Authentication</h2></div>
+            <div class="card-body">
+                <p class="muted">
+                    A bearer token is required for control endpoints (manual round trigger).
+                    Stored in your browser via <code>localStorage</code>.
+                </p>
+                <div class="field">
+                    <label for="api-token-input">API token</label>
+                    <input type="password" id="api-token-input" class="input" placeholder="Paste your token">
+                </div>
+                <div class="field-actions">
+                    <button id="btn-save-token" class="btn btn-primary">Save token</button>
+                    <button id="btn-clear-token" class="btn btn-ghost">Clear</button>
+                    <span id="token-status" class="status-line"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h2>Configuration</h2></div>
+            <div class="card-body">
+                <pre id="config-dump" class="code-block">Loading&hellip;</pre>
+            </div>
+        </div>
+    </template>
+
+    <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

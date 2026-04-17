@@ -42,3 +42,15 @@ allowed_trigger_users = []
 
 [logging]
 level = "info"
+
+[web]
+enabled = true
+host = "0.0.0.0"
+port = 8080
+# Bearer token for control endpoints. Sourced from WEB_API_TOKEN env var
+# when empty here; leave empty to disable /rounds/trigger and other mutating
+# endpoints entirely.
+api_token = ""
+# CORS origins for browser clients served from a different origin.
+# Leave empty to allow only same-origin requests.
+cors_origins = []
