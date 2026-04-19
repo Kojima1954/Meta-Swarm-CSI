@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from orchestrator.matrix.transcript import TranscriptBuffer
     from orchestrator.models.topology import Topology
     from orchestrator.rag.store import VectorStore
+    from orchestrator.web.events import EventBus
 
 log = structlog.get_logger()
 
@@ -43,6 +44,7 @@ class RoundController:
         publisher: "FederationPublisher",
         subscriber: "FederationSubscriber",
         topology: "Topology",
+        events: "EventBus | None" = None,
     ) -> None:
         self._settings = settings
         self._config: RoundsConfig = settings.rounds
@@ -53,6 +55,7 @@ class RoundController:
         self._publisher = publisher
         self._subscriber = subscriber
         self._topology = topology
+        self._events = events
 
         self.phase = Phase.DISCUSS
         self.round_number = 1
@@ -81,6 +84,7 @@ class RoundController:
         while not self._shutdown.is_set():
             self.phase = Phase.DISCUSS
             log.info("rounds.phase", phase=self.phase, round=self.round_number)
+            await self._emit_phase()
 
             # Wait for trigger
             triggered = await self._wait_for_trigger()
@@ -90,15 +94,21 @@ class RoundController:
             # SUMMARIZE phase
             self.phase = Phase.SUMMARIZE
             log.info("rounds.phase", phase=self.phase, round=self.round_number)
+            await self._emit_phase()
 
             summary = await self._run_summarize()
             if summary is None:
                 log.warn("rounds.summarize_failed", round=self.round_number)
+                if self._events:
+                    await self._events.publish(
+                        "round.failed", round=self.round_number
+                    )
                 continue
 
             # PROPAGATE phase
             self.phase = Phase.PROPAGATE
             log.info("rounds.phase", phase=self.phase, round=self.round_number)
+            await self._emit_phase()
 
             await self._run_propagate(summary)
 
@@ -110,6 +120,18 @@ class RoundController:
             self._seen_summary_ids.clear()
 
             log.info("rounds.complete", next_round=self.round_number)
+            if self._events:
+                await self._events.publish(
+                    "round.complete", next_round=self.round_number
+                )
+
+    async def _emit_phase(self) -> None:
+        if self._events:
+            await self._events.publish(
+                "round.phase",
+                phase=self.phase.value,
+                round=self.round_number,
+            )
 
     async def _wait_for_trigger(self) -> bool:
         """Wait for the appropriate trigger based on mode config."""
@@ -193,6 +215,14 @@ class RoundController:
         self_name = self._settings.node.name or self._settings.node.id
         await self._matrix.send_swarm_signal(summary, f"{self_name} (local)")
 
+        if self._events:
+            await self._events.publish(
+                "summary.created",
+                origin="local",
+                source_name=self_name,
+                summary=summary.model_dump(mode="json"),
+            )
+
         return summary
 
     async def _run_propagate(self, summary: SwarmSummary) -> None:
@@ -246,6 +276,14 @@ class RoundController:
             source=summary.source_node_id,
             round=summary.round_number,
         )
+
+        if self._events:
+            await self._events.publish(
+                "summary.created",
+                origin="federation",
+                source_name=source_name,
+                summary=summary.model_dump(mode="json"),
+            )
 
     async def stop(self) -> None:
         """Signal shutdown."""

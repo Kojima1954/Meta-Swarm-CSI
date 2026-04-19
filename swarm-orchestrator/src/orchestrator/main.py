@@ -19,6 +19,8 @@ from orchestrator.matrix.transcript import TranscriptBuffer
 from orchestrator.rag.store import VectorStore
 from orchestrator.rounds.controller import RoundController
 from orchestrator.topology.manager import TopologyManager
+from orchestrator.web import AppState, EventBus
+from orchestrator.web.server import serve as serve_web
 
 log = structlog.get_logger()
 
@@ -93,6 +95,7 @@ async def run() -> None:
 
     # Initialize components
     transcript = TranscriptBuffer()
+    events = EventBus()
 
     summarizer = Summarizer(settings.ai, http_client)
     vector_store = VectorStore(settings.ai, http_client)
@@ -110,6 +113,7 @@ async def run() -> None:
         publisher=publisher,
         subscriber=subscriber,
         topology=topology,
+        events=events,
     )
 
     matrix = MatrixBridge(
@@ -118,8 +122,18 @@ async def run() -> None:
         transcript=transcript,
         on_manual_trigger=controller.trigger_manual,
         allowed_trigger_users=settings.security.allowed_trigger_users,
+        events=events,
     )
     controller._matrix = matrix  # noqa: SLF001 — DI wiring
+
+    app_state = AppState(
+        settings=settings,
+        controller=controller,
+        transcript=transcript,
+        topology=topology,
+        vector_store=vector_store,
+        events=events,
+    )
 
     # Ensure Qdrant collection exists
     try:
@@ -147,8 +161,14 @@ async def run() -> None:
             poll_federation(subscriber, controller, shutdown),
             name="federation",
         ),
+        asyncio.create_task(serve_web(app_state, shutdown), name="web"),
     ]
 
+    await events.publish(
+        "orchestrator.running",
+        node_id=settings.node.id,
+        version="0.1.0",
+    )
     log.info("orchestrator.running", node_id=settings.node.id)
 
     try:

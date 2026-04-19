@@ -111,6 +111,7 @@ services:
       - conduit
       - element-web
       - gotosocial
+      - swarm-orchestrator
     networks:
       - swarm
     security_opt:
@@ -136,6 +137,10 @@ services:
       - ./config/default.toml:/etc/orchestrator/config.toml:ro
       - ./config/topology.toml:/etc/orchestrator/topology.toml:ro
       - ./data/keys:/data/keys:ro
+    environment:
+      # Token for mutating API endpoints (round trigger).  Leave unset to
+      # disable control endpoints entirely.
+      WEB_API_TOKEN: ${WEB_API_TOKEN:-}
     depends_on:
       - conduit
       - gotosocial
