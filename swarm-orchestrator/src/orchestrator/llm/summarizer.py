@@ -96,7 +96,7 @@ class Summarizer:
                             cleaned = cleaned[: cleaned.rfind("```")]
                     else:
                         # Single-line: ```json{...}``` — strip leading/trailing fences
-                        cleaned = cleaned.strip("`").lstrip("json").lstrip()
+                        cleaned = cleaned.strip("`").removeprefix("json").lstrip()
                     cleaned = cleaned.strip()
 
                 data = json.loads(cleaned)
